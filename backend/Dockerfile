@@ -44,14 +44,14 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY backend/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Install Playwright Chromium browser
 RUN playwright install chromium
 RUN playwright install-deps chromium
 
-COPY . .
+COPY backend/ .
 
 EXPOSE 8000
 

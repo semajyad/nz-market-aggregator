@@ -1,4 +1,5 @@
 import logging
+from urllib.parse import urljoin
 from typing import List
 from bs4 import BeautifulSoup
 from scrapers.base import BaseScraper
@@ -11,6 +12,16 @@ class ComputerLoungeScraper(BaseScraper):
     platform_name = Platform.COMPUTER_LOUNGE
     base_url = "https://www.computerlounge.co.nz"
     rate_limit_seconds = 2.0
+
+    @staticmethod
+    def _is_product_href(href: str) -> bool:
+        if not href:
+            return False
+        value = href.strip().lower()
+        if value.startswith("javascript:") or value.startswith("#"):
+            return False
+        blocked = ("/cart", "addtocart", "add-to-cart", "checkout", "basket")
+        return not any(token in value for token in blocked)
 
     async def search(self, query: ParsedQuery) -> List[NormalizedItem]:
         results = []
@@ -59,11 +70,27 @@ class ComputerLoungeScraper(BaseScraper):
                 if query.max_price and price_val and price_val > query.max_price:
                     continue
 
-                link_el = item.select_one("a[href]")
-                if not link_el:
+                link_el = (
+                    item.select_one(".product-title a[href]")
+                    or item.select_one("h2 a[href]")
+                    or item.select_one("h3 a[href]")
+                    or item.select_one("a[href*='/product']")
+                    or item.select_one("a[href*='/products']")
+                )
+
+                if not link_el or not self._is_product_href(link_el.get("href", "")):
+                    valid_links = [
+                        a.get("href", "")
+                        for a in item.select("a[href]")
+                        if self._is_product_href(a.get("href", ""))
+                    ]
+                    href = valid_links[0] if valid_links else ""
+                else:
+                    href = link_el.get("href", "")
+
+                if not href:
                     continue
-                href = link_el.get("href", "")
-                item_url = self.base_url + href if href.startswith("/") else href
+                item_url = urljoin(self.base_url, href)
 
                 img_el = item.select_one("img[src], img[data-src]")
                 image_url = None

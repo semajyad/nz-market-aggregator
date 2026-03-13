@@ -2,6 +2,7 @@ import asyncio
 import logging
 import random
 from abc import ABC, abstractmethod
+from urllib.parse import urljoin
 from typing import List, Optional
 from playwright.async_api import async_playwright, Browser, BrowserContext, Page
 from models import NormalizedItem, ParsedQuery
@@ -20,6 +21,15 @@ class BaseScraper(ABC):
     platform_name: str = "Unknown"
     base_url: str = ""
     rate_limit_seconds: float = 2.0
+    blocked_link_tokens: tuple[str, ...] = (
+        "/cart",
+        "cart?",
+        "checkout",
+        "basket",
+        "addtocart",
+        "add-to-cart",
+        "buy-now",
+    )
 
     def __init__(self):
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -96,3 +106,16 @@ class BaseScraper(ABC):
 
     def _truncate(self, text: str, max_len: int = 200) -> str:
         return text[:max_len].strip() if text else ""
+
+    def _is_valid_listing_href(self, href: str) -> bool:
+        if not href:
+            return False
+        value = href.strip().lower()
+        if value.startswith("javascript:") or value.startswith("#"):
+            return False
+        return not any(token in value for token in self.blocked_link_tokens)
+
+    def _normalize_listing_url(self, href: str) -> Optional[str]:
+        if not self._is_valid_listing_href(href):
+            return None
+        return urljoin(self.base_url, href.strip())

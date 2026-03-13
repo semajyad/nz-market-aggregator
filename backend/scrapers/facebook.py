@@ -78,12 +78,9 @@ class FacebookScraper(BaseScraper):
             for link in listing_items[:20]:
                 try:
                     href = link.get("href", "")
-                    if not href:
+                    item_url = self._normalize_listing_url(href)
+                    if not item_url:
                         continue
-                    if href.startswith("/"):
-                        item_url = "https://www.facebook.com" + href
-                    else:
-                        item_url = href
 
                     if item_url in seen_urls:
                         continue

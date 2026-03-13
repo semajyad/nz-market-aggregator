@@ -65,7 +65,9 @@ class MightyApeScraper(BaseScraper):
                 if not link_el:
                     continue
                 href = link_el.get("href", "")
-                item_url = self.base_url + href if href.startswith("/") else href
+                item_url = self._normalize_listing_url(href)
+                if not item_url:
+                    continue
 
                 img_el = item.select_one("img[src], img[data-src], img[data-lazy-src]")
                 image_url = None

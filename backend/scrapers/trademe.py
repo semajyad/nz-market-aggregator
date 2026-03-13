@@ -68,11 +68,8 @@ class TrademeScraper(BaseScraper):
                 if not link_el:
                     continue
                 href = link_el.get("href", "")
-                if href.startswith("/"):
-                    item_url = self.base_url + href
-                elif href.startswith("http"):
-                    item_url = href
-                else:
+                item_url = self._normalize_listing_url(href)
+                if not item_url:
                     continue
 
                 img_el = item.select_one("img[src]")

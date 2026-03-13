@@ -4,6 +4,7 @@ from typing import Optional
 
 class Settings(BaseSettings):
     GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-2.0-flash"
     SUPABASE_URL: str = ""
     SUPABASE_ANON_KEY: str = ""
     SUPABASE_DB_URL: str = ""
@@ -15,7 +16,18 @@ class Settings(BaseSettings):
 
     @property
     def allowed_origins_list(self) -> list[str]:
-        return [o.strip() for o in self.ALLOWED_ORIGINS.split(",")]
+        origins: list[str] = []
+        for origin in self.ALLOWED_ORIGINS.split(","):
+            candidate = origin.strip()
+            if not candidate:
+                continue
+            if candidate.startswith(("http://", "https://")):
+                origins.append(candidate)
+            elif candidate.startswith("localhost"):
+                origins.append(f"http://{candidate}")
+            else:
+                origins.append(f"https://{candidate}")
+        return origins
 
     class Config:
         env_file = ".env"

@@ -48,42 +48,53 @@ Response: {"keywords": ["gaming monitor 144hz 27 inch"], "max_price": 400, "min_
 """
 
 
+def _candidate_models() -> list[str]:
+    configured = (settings.GEMINI_MODEL or "").strip()
+    candidates = [configured] if configured else []
+    for fallback in ["gemini-2.0-flash", "gemini-1.5-flash"]:
+        if fallback not in candidates:
+            candidates.append(fallback)
+    return candidates
+
+
 async def parse_query(raw_query: str) -> ParsedQuery:
     """Use Gemini to parse a natural language query into structured search parameters."""
     if not settings.GEMINI_API_KEY:
         logger.warning("Using fallback NLP parser (no Gemini API key).")
         return _fallback_parse(raw_query)
 
-    try:
-        model = genai.GenerativeModel(
-            model_name="gemini-1.5-flash",
-            system_instruction=SYSTEM_PROMPT,
-        )
-        response = model.generate_content(
-            raw_query,
-            generation_config=genai.types.GenerationConfig(
-                temperature=0.1,
-                max_output_tokens=512,
-            ),
-        )
-        text = response.text.strip()
+    for model_name in _candidate_models():
+        try:
+            model = genai.GenerativeModel(
+                model_name=model_name,
+                system_instruction=SYSTEM_PROMPT,
+            )
+            response = model.generate_content(
+                raw_query,
+                generation_config=genai.types.GenerationConfig(
+                    temperature=0.1,
+                    max_output_tokens=512,
+                ),
+            )
+            text = response.text.strip()
 
-        json_match = re.search(r'\{.*\}', text, re.DOTALL)
-        if json_match:
-            data = json.loads(json_match.group())
-        else:
-            data = json.loads(text)
+            json_match = re.search(r'\{.*\}', text, re.DOTALL)
+            if json_match:
+                data = json.loads(json_match.group())
+            else:
+                data = json.loads(text)
 
-        return ParsedQuery(
-            keywords=data.get("keywords", [raw_query]),
-            max_price=data.get("max_price"),
-            min_specs=data.get("min_specs", []),
-            raw_query=raw_query,
-        )
+            return ParsedQuery(
+                keywords=data.get("keywords", [raw_query]),
+                max_price=data.get("max_price"),
+                min_specs=data.get("min_specs", []),
+                raw_query=raw_query,
+            )
+        except Exception as e:
+            logger.warning(f"Gemini model '{model_name}' failed: {e}")
 
-    except Exception as e:
-        logger.error(f"Gemini NLP parsing failed: {e}. Falling back to keyword extraction.")
-        return _fallback_parse(raw_query)
+    logger.error("Gemini NLP parsing failed for all candidate models. Falling back to keyword extraction.")
+    return _fallback_parse(raw_query)
 
 
 def _fallback_parse(raw_query: str) -> ParsedQuery:

@@ -28,6 +28,17 @@ async def send_telegram_message(text: str, parse_mode: str = "HTML") -> bool:
             response.raise_for_status()
             logger.info("Telegram notification sent successfully.")
             return True
+    except httpx.HTTPStatusError as e:
+        detail = ""
+        try:
+            detail = e.response.text
+        except Exception:
+            detail = "<unavailable>"
+        logger.error(
+            f"Failed to send Telegram notification: status={e.response.status_code}, "
+            f"response={detail}"
+        )
+        return False
     except Exception as e:
         logger.error(f"Failed to send Telegram notification: {e}")
         return False

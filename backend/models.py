@@ -74,6 +74,11 @@ class FoundItemResponse(BaseModel):
     notified: bool
     reviewed: bool = False
     reviewed_at: Optional[datetime] = None
+    is_likely_fit: Optional[bool] = None
+    fit_score: Optional[int] = None
+    fit_reason: Optional[str] = None
+    price_assessment: Optional[str] = None
+    price_assessment_reason: Optional[str] = None
 
 
 class RunNowRequest(BaseModel):

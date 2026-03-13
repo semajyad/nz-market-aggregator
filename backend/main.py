@@ -1,7 +1,7 @@
 import logging
 import asyncio
 from contextlib import asynccontextmanager
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -197,10 +197,26 @@ async def list_query_items(
     query_id: str,
     limit: int = Query(100, le=500),
     offset: int = Query(0, ge=0),
+    ai_filtered: bool = Query(True),
 ):
     """List all found items for a specific query."""
+    query_row = await database.get_query_by_id(query_id)
+    if not query_row:
+        raise HTTPException(status_code=404, detail="Query not found")
+
     rows = await database.get_items_for_query(query_id, limit=limit, offset=offset)
-    return [_row_to_item_response(r) for r in rows]
+    evaluations = await nlp.evaluate_items_for_query(
+        query_row.get("raw_query", ""),
+        rows,
+    )
+
+    responses: List[FoundItemResponse] = []
+    for row in rows:
+        eval_data = evaluations.get(row.get("url", ""))
+        if ai_filtered and eval_data and not eval_data.get("is_likely_fit", False):
+            continue
+        responses.append(_row_to_item_response(row, eval_data))
+    return responses
 
 
 @app.patch("/api/items/{item_id}/review", response_model=FoundItemResponse)
@@ -217,7 +233,8 @@ async def delete_item(item_id: str):
     return {"success": True, "message": "Item removed."}
 
 
-def _row_to_item_response(row: dict) -> FoundItemResponse:
+def _row_to_item_response(row: dict, evaluation: Optional[Dict[str, Any]] = None) -> FoundItemResponse:
+    evaluation = evaluation or {}
     return FoundItemResponse(
         id=row["id"],
         query_id=row["query_id"],
@@ -233,6 +250,11 @@ def _row_to_item_response(row: dict) -> FoundItemResponse:
         notified=row.get("notified", False),
         reviewed=row.get("reviewed", False),
         reviewed_at=row.get("reviewed_at"),
+        is_likely_fit=evaluation.get("is_likely_fit"),
+        fit_score=evaluation.get("fit_score"),
+        fit_reason=evaluation.get("fit_reason"),
+        price_assessment=evaluation.get("price_assessment"),
+        price_assessment_reason=evaluation.get("price_reason"),
     )
 
 

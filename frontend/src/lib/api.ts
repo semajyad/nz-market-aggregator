@@ -1,4 +1,19 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010'
+function resolveApiBase(): string {
+  const configured = (process.env.NEXT_PUBLIC_API_URL || '').trim()
+  if (configured) {
+    if (configured.startsWith('http://') || configured.startsWith('https://')) {
+      return configured
+    }
+    return `https://${configured}`
+  }
+
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+    return 'http://localhost:8010'
+  }
+  return 'https://caring-connection-production.up.railway.app'
+}
+
+const API_BASE = resolveApiBase()
 
 export interface SearchQuery {
   id: string

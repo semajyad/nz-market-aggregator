@@ -10,11 +10,27 @@ from scrapers import (
     NoelLeemingScraper,
     MightyApeScraper,
     FacebookScraper,
+    JBHifiScraper,
+    HarveyNormanScraper,
+    DickSmithScraper,
 )
 import database
 import notifications
 
 logger = logging.getLogger(__name__)
+BAD_RESULT_TOKENS = ("cart", "checkout", "addtocart", "add-to-cart", "basket")
+
+
+def _is_valid_found_item(item: NormalizedItem) -> bool:
+    url = (item.url or "").strip().lower()
+    title = (item.title or "").strip().lower()
+    if not url.startswith("http"):
+        return False
+    if any(token in url for token in BAD_RESULT_TOKENS):
+        return False
+    if title in {"cart", "checkout", "add to cart"}:
+        return False
+    return True
 
 
 async def _run_scraper_safe(scraper, query: ParsedQuery) -> List[NormalizedItem]:
@@ -59,6 +75,9 @@ async def run_aggregation_for_query(query_id: str) -> Dict:
         NoelLeemingScraper(),
         MightyApeScraper(),
         FacebookScraper(),
+        JBHifiScraper(),
+        HarveyNormanScraper(),
+        DickSmithScraper(),
     ]
 
     # Run scrapers with limited concurrency (max 3 at a time to avoid IP bans)
@@ -83,6 +102,8 @@ async def run_aggregation_for_query(query_id: str) -> Dict:
 
     for item in all_items:
         try:
+            if not _is_valid_found_item(item):
+                continue
             exists = await database.item_exists(query_id, item.url)
             if not exists:
                 saved = await database.save_found_item(

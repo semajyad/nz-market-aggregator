@@ -31,8 +31,14 @@ CREATE TABLE IF NOT EXISTS found_items (
     description TEXT,
     found_at TIMESTAMPTZ DEFAULT now(),
     notified BOOLEAN DEFAULT FALSE,
+    reviewed BOOLEAN DEFAULT FALSE,
+    reviewed_at TIMESTAMPTZ,
     UNIQUE(query_id, url)
 );
+
+-- Backfill safety for existing deployments
+ALTER TABLE found_items ADD COLUMN IF NOT EXISTS reviewed BOOLEAN DEFAULT FALSE;
+ALTER TABLE found_items ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;
 
 -- Performance indexes
 CREATE INDEX IF NOT EXISTS idx_found_items_query_id ON found_items(query_id);

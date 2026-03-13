@@ -15,6 +15,7 @@ from models import (
     FoundItemResponse,
     RunNowRequest,
     TelegramTestRequest,
+    ItemReviewUpdate,
 )
 import database
 import nlp
@@ -149,14 +150,34 @@ async def get_query(query_id: str):
     )
 
 
-@app.delete("/api/queries/{query_id}")
-async def deactivate_query(query_id: str):
-    """Deactivate a search query (stops future scheduled runs)."""
+@app.patch("/api/queries/{query_id}/pause")
+async def pause_query(query_id: str):
+    """Pause a search query (stops future scheduled runs)."""
     row = await database.get_query_by_id(query_id)
     if not row:
         raise HTTPException(status_code=404, detail="Query not found")
     await database.deactivate_query(query_id)
-    return {"success": True, "message": "Query deactivated."}
+    return {"success": True, "message": "Query paused."}
+
+
+@app.patch("/api/queries/{query_id}/resume")
+async def resume_query(query_id: str):
+    """Resume a paused search query."""
+    row = await database.get_query_by_id(query_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Query not found")
+    await database.resume_query(query_id)
+    return {"success": True, "message": "Query resumed."}
+
+
+@app.delete("/api/queries/{query_id}")
+async def delete_query(query_id: str):
+    """Delete a search query and all associated found items."""
+    row = await database.get_query_by_id(query_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Query not found")
+    await database.delete_query(query_id)
+    return {"success": True, "message": "Query deleted."}
 
 
 # === Items ===
@@ -182,6 +203,20 @@ async def list_query_items(
     return [_row_to_item_response(r) for r in rows]
 
 
+@app.patch("/api/items/{item_id}/review", response_model=FoundItemResponse)
+async def mark_item_review(item_id: str, body: ItemReviewUpdate):
+    row = await database.set_item_reviewed(item_id, body.reviewed)
+    if not row:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return _row_to_item_response(row)
+
+
+@app.delete("/api/items/{item_id}")
+async def delete_item(item_id: str):
+    await database.delete_item(item_id)
+    return {"success": True, "message": "Item removed."}
+
+
 def _row_to_item_response(row: dict) -> FoundItemResponse:
     return FoundItemResponse(
         id=row["id"],
@@ -196,6 +231,8 @@ def _row_to_item_response(row: dict) -> FoundItemResponse:
         description=row.get("description"),
         found_at=row["found_at"],
         notified=row.get("notified", False),
+        reviewed=row.get("reviewed", False),
+        reviewed_at=row.get("reviewed_at"),
     )
 
 

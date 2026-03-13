@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   Search, Bell, RefreshCw, Trash2, ExternalLink, CheckCircle2,
-  XCircle, Clock, Package, ChevronDown, ChevronUp, Zap, BellRing,
+  XCircle, Clock, Package, ChevronDown, ChevronUp, Zap, BellRing, Pause, Play, Check,
   LayoutDashboard, ListFilter, Plus, Activity,
 } from 'lucide-react'
 import { api, SearchQuery, FoundItem } from '@/lib/api'
@@ -17,6 +17,9 @@ const PLATFORM_COLORS: Record<string, string> = {
   'Computer Lounge': 'bg-orange-100 text-orange-800',
   'Noel Leeming': 'bg-yellow-100 text-yellow-800',
   'MightyApe': 'bg-purple-100 text-purple-800',
+  'JB Hi-Fi': 'bg-rose-100 text-rose-800',
+  'Harvey Norman': 'bg-cyan-100 text-cyan-800',
+  'Dick Smith': 'bg-fuchsia-100 text-fuchsia-800',
 }
 
 const CONDITION_COLORS: Record<string, string> = {
@@ -49,9 +52,19 @@ function StatusDot({ active }: { active: boolean }) {
   )
 }
 
-function ItemCard({ item }: { item: FoundItem }) {
+function ItemCard({
+  item,
+  onToggleReviewed,
+  onRemove,
+}: {
+  item: FoundItem
+  onToggleReviewed: (item: FoundItem) => void
+  onRemove: (itemId: string) => void
+}) {
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow flex gap-3">
+    <div className={`bg-white rounded-lg border p-4 hover:shadow-md transition-shadow flex gap-3 ${
+      item.reviewed ? 'border-gray-100 opacity-80' : 'border-gray-200'
+    }`}>
       {item.image_url && (
         <div className="flex-shrink-0 w-16 h-16 rounded-md overflow-hidden bg-gray-100">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -66,14 +79,35 @@ function ItemCard({ item }: { item: FoundItem }) {
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
           <p className="text-sm font-medium text-gray-900 line-clamp-2 flex-1">{item.title}</p>
-          <a
-            href={item.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex-shrink-0 text-blue-600 hover:text-blue-800"
-          >
-            <ExternalLink className="w-4 h-4" />
-          </a>
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <button
+              onClick={() => onToggleReviewed(item)}
+              className={`p-1 rounded-md transition-colors ${
+                item.reviewed
+                  ? 'text-green-700 bg-green-50 hover:bg-green-100'
+                  : 'text-gray-400 hover:text-green-700 hover:bg-green-50'
+              }`}
+              title={item.reviewed ? 'Mark as unreviewed' : 'Mark as reviewed'}
+            >
+              <Check className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => onRemove(item.id)}
+              className="p-1 rounded-md text-gray-400 hover:text-red-700 hover:bg-red-50 transition-colors"
+              title="Remove invalid result"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+            <a
+              href={item.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-800"
+              title="Open listing"
+            >
+              <ExternalLink className="w-4 h-4" />
+            </a>
+          </div>
         </div>
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
           <span className="text-sm font-bold text-gray-900">{item.price_display || 'N/A'}</span>
@@ -88,6 +122,11 @@ function ItemCard({ item }: { item: FoundItem }) {
         <p className="mt-1 text-xs text-gray-400">
           Found {formatDistanceToNow(new Date(item.found_at), { addSuffix: true })}
         </p>
+        {item.reviewed && (
+          <p className="mt-1 text-xs text-green-700">
+            Reviewed {item.reviewed_at ? formatDistanceToNow(new Date(item.reviewed_at), { addSuffix: true }) : ''}
+          </p>
+        )}
       </div>
     </div>
   )
@@ -98,13 +137,17 @@ function QueryCard({
   isSelected,
   onSelect,
   onRunNow,
-  onDeactivate,
+  onPause,
+  onResume,
+  onDelete,
 }: {
   query: SearchQuery
   isSelected: boolean
   onSelect: () => void
   onRunNow: (id: string) => void
-  onDeactivate: (id: string) => void
+  onPause: (id: string) => void
+  onResume: (id: string) => void
+  onDelete: (id: string) => void
 }) {
   return (
     <div
@@ -128,15 +171,30 @@ function QueryCard({
           >
             <RefreshCw className="w-3.5 h-3.5" />
           </button>
-          {query.is_active && (
+          {query.is_active ? (
             <button
-              onClick={() => onDeactivate(query.id)}
+              onClick={() => onPause(query.id)}
               title="Pause"
-              className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+              className="p-1.5 rounded-md text-gray-400 hover:text-amber-700 hover:bg-amber-50 transition-colors"
             >
-              <Trash2 className="w-3.5 h-3.5" />
+              <Pause className="w-3.5 h-3.5" />
+            </button>
+          ) : (
+            <button
+              onClick={() => onResume(query.id)}
+              title="Resume"
+              className="p-1.5 rounded-md text-gray-400 hover:text-green-700 hover:bg-green-50 transition-colors"
+            >
+              <Play className="w-3.5 h-3.5" />
             </button>
           )}
+          <button
+            onClick={() => onDelete(query.id)}
+            title="Delete monitor"
+            className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
 
@@ -299,15 +357,59 @@ export default function Dashboard() {
     }
   }
 
-  const handleDeactivate = async (queryId: string) => {
+  const handlePause = async (queryId: string) => {
     if (!confirm('Pause this monitor? It will stop running in future scans.')) return
     try {
-      await api.deactivateQuery(queryId)
+      await api.pauseQuery(queryId)
       showToast('Monitor paused.', 'success')
       loadQueries()
       if (selectedQueryId === queryId) setSelectedQueryId(null)
     } catch {
       showToast('Failed to pause monitor.', 'error')
+    }
+  }
+
+  const handleResume = async (queryId: string) => {
+    try {
+      await api.resumeQuery(queryId)
+      showToast('Monitor resumed.', 'success')
+      loadQueries()
+    } catch {
+      showToast('Failed to resume monitor.', 'error')
+    }
+  }
+
+  const handleDeleteQuery = async (queryId: string) => {
+    if (!confirm('Delete this monitor and all its results?')) return
+    try {
+      await api.deleteQuery(queryId)
+      showToast('Monitor deleted.', 'success')
+      if (selectedQueryId === queryId) setSelectedQueryId(null)
+      loadQueries()
+      loadItems()
+    } catch {
+      showToast('Failed to delete monitor.', 'error')
+    }
+  }
+
+  const handleToggleReviewed = async (item: FoundItem) => {
+    try {
+      await api.setItemReviewed(item.id, !item.reviewed)
+      loadItems(selectedQueryId ?? undefined)
+    } catch {
+      showToast('Failed to update review state.', 'error')
+    }
+  }
+
+  const handleRemoveItem = async (itemId: string) => {
+    if (!confirm('Remove this result?')) return
+    try {
+      await api.deleteItem(itemId)
+      showToast('Result removed.', 'success')
+      loadItems(selectedQueryId ?? undefined)
+      loadQueries()
+    } catch {
+      showToast('Failed to remove result.', 'error')
     }
   }
 
@@ -322,6 +424,8 @@ export default function Dashboard() {
 
   const activeQueries = queries.filter((q) => q.is_active)
   const pausedQueries = queries.filter((q) => !q.is_active)
+  const unreviewedItems = items.filter((i) => !i.reviewed)
+  const reviewedItems = items.filter((i) => i.reviewed)
   const totalItems = queries.reduce((sum, q) => sum + q.total_results, 0)
 
   return (
@@ -386,7 +490,7 @@ export default function Dashboard() {
             <p className="text-xs text-gray-500 mt-0.5">Total Deals Found</p>
           </div>
           <div className="bg-white rounded-lg border border-gray-200 p-4 text-center">
-            <p className="text-2xl font-bold text-purple-600">7</p>
+            <p className="text-2xl font-bold text-purple-600">10</p>
             <p className="text-xs text-gray-500 mt-0.5">Platforms Monitored</p>
           </div>
         </div>
@@ -504,7 +608,9 @@ export default function Dashboard() {
                         loadItems(q.id)
                       }}
                       onRunNow={handleRunNow}
-                      onDeactivate={handleDeactivate}
+                      onPause={handlePause}
+                      onResume={handleResume}
+                      onDelete={handleDeleteQuery}
                     />
                   ))}
                   {pausedQueries.length > 0 && (
@@ -520,7 +626,9 @@ export default function Dashboard() {
                             loadItems(q.id)
                           }}
                           onRunNow={handleRunNow}
-                          onDeactivate={handleDeactivate}
+                          onPause={handlePause}
+                          onResume={handleResume}
+                          onDelete={handleDeleteQuery}
                         />
                       ))}
                     </div>
@@ -563,7 +671,29 @@ export default function Dashboard() {
                     </div>
                   ) : (
                     <div className="space-y-2 max-h-[600px] overflow-y-auto scrollbar-thin pr-1">
-                      {items.map((item) => <ItemCard key={item.id} item={item} />)}
+                      {unreviewedItems.map((item) => (
+                        <ItemCard
+                          key={item.id}
+                          item={item}
+                          onToggleReviewed={handleToggleReviewed}
+                          onRemove={handleRemoveItem}
+                        />
+                      ))}
+                      {reviewedItems.length > 0 && (
+                        <div className="pt-4">
+                          <p className="text-xs text-gray-400 mb-2">Reviewed</p>
+                          <div className="space-y-2">
+                            {reviewedItems.map((item) => (
+                              <ItemCard
+                                key={item.id}
+                                item={item}
+                                onToggleReviewed={handleToggleReviewed}
+                                onRemove={handleRemoveItem}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -609,7 +739,14 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {items.map((item) => <ItemCard key={item.id} item={item} />)}
+                {[...unreviewedItems, ...reviewedItems].map((item) => (
+                  <ItemCard
+                    key={item.id}
+                    item={item}
+                    onToggleReviewed={handleToggleReviewed}
+                    onRemove={handleRemoveItem}
+                  />
+                ))}
               </div>
             )}
           </div>
@@ -619,7 +756,7 @@ export default function Dashboard() {
       {/* Platforms footer */}
       <footer className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <p className="text-xs text-gray-400 text-center">
-          Monitoring: TradeMe · Facebook Marketplace · Cash Converters · PB Tech · Computer Lounge · Noel Leeming · MightyApe
+          Monitoring: TradeMe · Facebook Marketplace · Cash Converters · PB Tech · Computer Lounge · Noel Leeming · MightyApe · JB Hi-Fi · Harvey Norman · Dick Smith
         </p>
       </footer>
 

@@ -41,6 +41,8 @@ export interface FoundItem {
   description: string | null
   found_at: string
   notified: boolean
+  reviewed: boolean
+  reviewed_at: string | null
 }
 
 export interface CreateQueryPayload {
@@ -78,7 +80,13 @@ export const api = {
 
   getQuery: (id: string) => request<SearchQuery>(`/api/queries/${id}`),
 
-  deactivateQuery: (id: string) =>
+  pauseQuery: (id: string) =>
+    request<{ success: boolean }>(`/api/queries/${id}/pause`, { method: 'PATCH' }),
+
+  resumeQuery: (id: string) =>
+    request<{ success: boolean }>(`/api/queries/${id}/resume`, { method: 'PATCH' }),
+
+  deleteQuery: (id: string) =>
     request<{ success: boolean }>(`/api/queries/${id}`, { method: 'DELETE' }),
 
   listAllItems: (limit = 200, offset = 0) =>
@@ -101,6 +109,15 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ message: message ?? 'Test from NZ Market Aggregator! 🎉' }),
     }),
+
+  setItemReviewed: (itemId: string, reviewed: boolean) =>
+    request<FoundItem>(`/api/items/${itemId}/review`, {
+      method: 'PATCH',
+      body: JSON.stringify({ reviewed }),
+    }),
+
+  deleteItem: (itemId: string) =>
+    request<{ success: boolean }>(`/api/items/${itemId}`, { method: 'DELETE' }),
 
   schedulerStatus: () => request<SchedulerStatus>('/api/scheduler/status'),
 

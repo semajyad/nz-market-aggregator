@@ -18,6 +18,9 @@ class Platform(str, Enum):
     COMPUTER_LOUNGE = "Computer Lounge"
     NOEL_LEEMING = "Noel Leeming"
     MIGHTY_APE = "MightyApe"
+    JB_HIFI = "JB Hi-Fi"
+    HARVEY_NORMAN = "Harvey Norman"
+    DICK_SMITH = "Dick Smith"
 
 
 class ParsedQuery(BaseModel):
@@ -69,6 +72,8 @@ class FoundItemResponse(BaseModel):
     description: Optional[str]
     found_at: datetime
     notified: bool
+    reviewed: bool = False
+    reviewed_at: Optional[datetime] = None
 
 
 class RunNowRequest(BaseModel):
@@ -77,3 +82,7 @@ class RunNowRequest(BaseModel):
 
 class TelegramTestRequest(BaseModel):
     message: str = "Test notification from NZ Market Aggregator! 🎉"
+
+
+class ItemReviewUpdate(BaseModel):
+    reviewed: bool

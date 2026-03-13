@@ -45,6 +45,8 @@ CREATE TABLE IF NOT EXISTS found_items (
     description TEXT,
     found_at TIMESTAMPTZ DEFAULT now(),
     notified BOOLEAN DEFAULT FALSE,
+    reviewed BOOLEAN DEFAULT FALSE,
+    reviewed_at TIMESTAMPTZ,
     UNIQUE(query_id, url)
 );
 
@@ -101,6 +103,16 @@ async def deactivate_query(query_id: str) -> None:
     db.table("search_queries").update({"is_active": False}).eq("id", query_id).execute()
 
 
+async def resume_query(query_id: str) -> None:
+    db = get_client()
+    db.table("search_queries").update({"is_active": True}).eq("id", query_id).execute()
+
+
+async def delete_query(query_id: str) -> None:
+    db = get_client()
+    db.table("search_queries").delete().eq("id", query_id).execute()
+
+
 async def item_exists(query_id: str, url: str) -> bool:
     db = get_client()
     result = (
@@ -137,6 +149,7 @@ async def save_found_item(
         "image_url": image_url,
         "description": description,
         "notified": notified,
+        "reviewed": False,
     }
     try:
         result = db.table("found_items").insert(data).execute()
@@ -157,6 +170,7 @@ async def get_items_for_query(
         db.table("found_items")
         .select("*")
         .eq("query_id", query_id)
+        .order("reviewed", desc=False)
         .order("found_at", desc=True)
         .range(offset, offset + limit - 1)
         .execute()
@@ -169,11 +183,26 @@ async def get_all_items(limit: int = 200, offset: int = 0) -> List[Dict[str, Any
     result = (
         db.table("found_items")
         .select("*")
+        .order("reviewed", desc=False)
         .order("found_at", desc=True)
         .range(offset, offset + limit - 1)
         .execute()
     )
     return result.data
+
+
+async def set_item_reviewed(item_id: str, reviewed: bool) -> Optional[Dict[str, Any]]:
+    db = get_client()
+    from datetime import datetime, timezone
+    payload: Dict[str, Any] = {"reviewed": reviewed}
+    payload["reviewed_at"] = datetime.now(timezone.utc).isoformat() if reviewed else None
+    result = db.table("found_items").update(payload).eq("id", item_id).execute()
+    return result.data[0] if result.data else None
+
+
+async def delete_item(item_id: str) -> None:
+    db = get_client()
+    db.table("found_items").delete().eq("id", item_id).execute()
 
 
 async def get_query_item_count(query_id: str) -> int:
